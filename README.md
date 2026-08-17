@@ -266,9 +266,13 @@ Real-Time-Housing_Market_Price_Predictor/
 │
 ├── scripts/
 │   ├── preprocess.py
+│   ├── explore.py
+│   ├── train_models_comparison.py
 │   ├── ingest.py
 │   ├── score_listings.py
 │   └── view_listings.py
+│
+├── sql/create_tables.sql 
 │
 ├── .env
 ├── .gitignore
