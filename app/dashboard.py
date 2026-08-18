@@ -330,7 +330,7 @@ def load_scored_listings():
             valuation_delta,
             valuation_delta_pct,
             last_seen_at
-        FROM listings
+        FROM public.listings
         WHERE predicted_price IS NOT NULL
         ORDER BY last_seen_at DESC;
     """
