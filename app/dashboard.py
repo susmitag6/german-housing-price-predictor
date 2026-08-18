@@ -12,7 +12,7 @@ load_dotenv()
 MODEL_PATH = "models/best_model.pkl"
 DATA_PATH = "data/processed/germany_housing.csv"
 RESULTS_PATH = "models/model_results.csv"
-DATABASE_URL = "postgresql://username:password@host/database?sslmode=require"
+
 
 # -----------------------------------------
 # Load model and data
@@ -26,15 +26,33 @@ def load_model():
 @st.cache_data
 def get_database_url():
 
-    # Streamlit Cloud
-    if "DATABASE_URL" in st.secrets:
-        return st.secrets["DATABASE_URL"]
+    # -----------------------------------------
+    # 1. Local development: use .env first
+    # -----------------------------------------
 
-    # Local development
     database_url = os.getenv("DATABASE_URL")
 
     if database_url:
         return database_url
+
+    # -----------------------------------------
+    # 2. Streamlit Cloud: try st.secrets
+    # -----------------------------------------
+
+    try:
+        database_url = st.secrets.get(
+            "DATABASE_URL"
+        )
+
+        if database_url:
+            return database_url
+
+    except Exception:
+        pass
+
+    # -----------------------------------------
+    # 3. Fallback to individual .env variables
+    # -----------------------------------------
 
     user = os.getenv("DB_USER")
     password = os.getenv("DB_PASSWORD")
@@ -42,22 +60,24 @@ def get_database_url():
     port = os.getenv("DB_PORT")
     database = os.getenv("DB_NAME")
 
-    if not all([
+    if all([
         user,
         password,
         host,
         port,
         database
     ]):
-        raise ValueError(
-            "Database configuration is missing."
+
+        return (
+            f"postgresql+psycopg2://"
+            f"{user}:{password}@{host}:{port}/{database}"
         )
 
-    return (
-        f"postgresql+psycopg2://"
-        f"{user}:{password}@{host}:{port}/{database}"
+    raise ValueError(
+        "Database configuration is missing. "
+        "Use DATABASE_URL in .env locally or "
+        "Streamlit Secrets when deployed."
     )
-    
     
 #def load_data():
 #    @st.cache_data
@@ -285,6 +305,7 @@ st.dataframe(
 # -----------------------------------------
 # Load scored listings from PostgreSQL
 # -----------------------------------------
+
 
 @st.cache_data(ttl=60)
 def load_scored_listings():
