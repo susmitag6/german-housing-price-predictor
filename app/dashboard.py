@@ -25,39 +25,38 @@ def load_model():
 
 @st.cache_data
 def load_scored_listings():
-    # 1. Fetch secrets safely (checks Streamlit Cloud Secrets first, then local env)
+    # 1. Fetch values safely from secrets or env
     user = st.secrets.get("DB_USER", os.getenv("DB_USER"))
     password = st.secrets.get("DB_PASSWORD", os.getenv("DB_PASSWORD"))
     host = st.secrets.get("DB_HOST", os.getenv("DB_HOST"))
-    port = st.secrets.get("DB_PORT", os.getenv("DB_PORT", "5432"))
     database = st.secrets.get("DB_NAME", os.getenv("DB_NAME"))
+    raw_port = st.secrets.get("DB_PORT", os.getenv("DB_PORT"))
 
-    # 2. Check if host is missing or set to localhost on cloud deployment
-    if not host or host in ["localhost", "127.0.0.1", "None"]:
-        st.info("No cloud database connected. Loading data from local CSV...")
-        return _load_csv_fallback()
-
-    # 3. Validate remaining credentials
-    if not all([user, password, database]):
-        st.warning("Missing database credentials in Secrets. Falling back to CSV...")
-        return _load_csv_fallback()
-
-    # 4. Safely parse port integer with fallback to 5432
-    if raw_port is not None and str(raw_port).isdigit():
-           port = string(raw_port)
+    # 2. Convert port safely — NEVER allow the string 'None'
+    if raw_port is not None and str(raw_port).strip().isdigit():
+        port = int(str(raw_port).strip())
     else:
-           port = "5432"  # Default PostgreSQL port
+        port = 5432
 
-    # 5. Connect to live cloud database
+    # 3. Check for missing host or localhost on Streamlit Cloud
+    if not host or host in ["localhost", "127.0.0.1", "None"] or not all([user, password, database]):
+        st.info("Database not configured or running on localhost. Loading CSV fallback...")
+        return _load_csv_fallback()
+
+    # 4. Build connection safely using URL.create (avoids string parsing bugs)
     try:
-        engine = create_engine(
-            f"postgresql+psycopg2://{user}:{password}@{host}:{port_int}/{database}",
-            connect_args={"connect_timeout": 5}
+        connection_url = URL.create(
+            drivername="postgresql+psycopg2",
+            username=user,
+            password=password,
+            host=host,
+            port=port,
+            database=database
         )
-        query = "SELECT * FROM scored_listings LIMIT 100;"
-        return pd.read_sql(query, engine)
+        engine = create_engine(connection_url, connect_args={"connect_timeout": 5})
+        return pd.read_sql("SELECT * FROM scored_listings LIMIT 100;", engine)
     except Exception as e:
-        st.warning(f"Could not reach database host '{host}'. Falling back to CSV.")
+        st.warning("Database connection failed. Loading CSV fallback...")
         return _load_csv_fallback()
 
 def _load_csv_fallback():
@@ -65,9 +64,9 @@ def _load_csv_fallback():
     if os.path.exists(csv_path):
         return pd.read_csv(csv_path)
     
-    st.error(f"Sample CSV file not found at `{csv_path}`.")
+    st.error("No database connection or local CSV data available.")
     return pd.DataFrame()
- 
+    
     
 #def load_data():
 #    @st.cache_data
