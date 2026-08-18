@@ -12,7 +12,7 @@ load_dotenv()
 MODEL_PATH = "models/best_model.pkl"
 DATA_PATH = "data/processed/germany_housing.csv"
 RESULTS_PATH = "models/model_results.csv"
-
+DATABASE_URL = "postgresql://username:password@host/database?sslmode=require"
 
 # -----------------------------------------
 # Load model and data
