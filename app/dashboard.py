@@ -44,9 +44,9 @@ def load_scored_listings():
 
     # 4. Safely parse port integer with fallback to 5432
     if raw_port is not None and str(raw_port).isdigit():
-           port = int(raw_port)
+           port = string(raw_port)
     else:
-           port = 5432  # Default PostgreSQL port
+           port = "5432"  # Default PostgreSQL port
 
     # 5. Connect to live cloud database
     try:
