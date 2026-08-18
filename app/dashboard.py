@@ -25,33 +25,50 @@ def load_model():
 
 @st.cache_data
 def load_scored_listings():
-    # Attempt to load from Database if credentials exist and are not localhost
-    db_host = st.secrets.get("DB_HOST", os.getenv("DB_HOST", "localhost"))
-    
-    if db_host != "localhost":
-        try:
-            user = st.secrets.get("DB_USER")
-            password = st.secrets.get("DB_PASSWORD")
-            port = st.secrets.get("DB_PORT", "5432")
-            database = st.secrets.get("DB_NAME")
-            
-            engine = create_engine(
-                f"postgresql+psycopg2://{user}:{password}@{db_host}:{port}/{database}",
-                connect_args={'connect_timeout': 5}
-            )
-            query = "SELECT * FROM scored_listings LIMIT 100;"
-            return pd.read_sql(query, engine)
-        except Exception as e:
-            st.warning("Could not connect to live database. Falling back to static data.")
+    # 1. Fetch secrets safely (checks Streamlit Cloud Secrets first, then local env)
+    user = st.secrets.get("DB_USER", os.getenv("DB_USER"))
+    password = st.secrets.get("DB_PASSWORD", os.getenv("DB_PASSWORD"))
+    host = st.secrets.get("DB_HOST", os.getenv("DB_HOST"))
+    port = st.secrets.get("DB_PORT", os.getenv("DB_PORT", "5432"))
+    database = st.secrets.get("DB_NAME", os.getenv("DB_NAME"))
 
-# Fallback to local sample CSV file
+    # 2. Check if host is missing or set to localhost on cloud deployment
+    if not host or host in ["localhost", "127.0.0.1", "None"]:
+        st.info("No cloud database connected. Loading data from local CSV...")
+        return _load_csv_fallback()
+
+    # 3. Validate remaining credentials
+    if not all([user, password, database]):
+        st.warning("Missing database credentials in Secrets. Falling back to CSV...")
+        return _load_csv_fallback()
+
+    # 4. Safely parse port integer with fallback to 5432
+    try:
+        port_int = int(port) if port and str(port).isdigit() else 5432
+    except ValueError:
+        port_int = 5432
+
+    # 5. Connect to live cloud database
+    try:
+        engine = create_engine(
+            f"postgresql+psycopg2://{user}:{password}@{host}:{port_int}/{database}",
+            connect_args={"connect_timeout": 5}
+        )
+        query = "SELECT * FROM scored_listings LIMIT 100;"
+        return pd.read_sql(query, engine)
+    except Exception as e:
+        st.warning(f"Could not reach database host '{host}'. Falling back to CSV.")
+        return _load_csv_fallback()
+
+def _load_csv_fallback():
     csv_path = "data/processed/sample_scored_listings.csv"
     if os.path.exists(csv_path):
         return pd.read_csv(csv_path)
     
-    st.error("No database connection or local CSV data available.")
-    return pd.DataFrame()            
-            
+    st.error(f"Sample CSV file not found at `{csv_path}`.")
+    return pd.DataFrame()
+    
+    
 #def load_data():
 #    @st.cache_data
 def load_data():
