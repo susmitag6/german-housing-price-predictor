@@ -24,13 +24,12 @@ def load_model():
 
 
 @st.cache_data
-def load_data():
-    @st.cache_data
+#def load_data():
+#    @st.cache_data
 def load_data():
     if not os.path.exists(DATA_PATH):
         st.error(f"Data file not found at: {DATA_PATH}")
         st.stop()
-
     return pd.read_csv(DATA_PATH)
 
 
