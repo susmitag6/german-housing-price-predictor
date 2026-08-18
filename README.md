@@ -4,11 +4,11 @@ An end-to-end machine learning portfolio project that estimates German residenti
 
 The project combines historical German housing data, multiple regression models, PostgreSQL, third-party listing ingestion through Apify, automated scoring, and a Streamlit dashboard.
 
-> **Important:** This is an educational portfolio project, not a professional property valuation or investment recommendation system.
+> **Important:** This is a portfolio project for my learning purpose, not a professional property valuation or investment recommendation system.
 
 ## Project Goal
 
-Most machine learning projects stop after model training. This project goes further by showing how a trained model can be used with newly arriving housing listings.
+Moving beyond model training, this project further demonstrates  how a trained model can be used with newly arriving housing listings.
 
 The workflow is:
 
