@@ -43,10 +43,10 @@ def load_scored_listings():
         return _load_csv_fallback()
 
     # 4. Safely parse port integer with fallback to 5432
-    try:
-        port_int = int(port) if port and str(port).isdigit() else 5432
-    except ValueError:
-        port_int = 5432
+    if raw_port is not None and str(raw_port).isdigit():
+           port = int(raw_port)
+    else:
+           port = 5432  # Default PostgreSQL port
 
     # 5. Connect to live cloud database
     try:
@@ -67,7 +67,7 @@ def _load_csv_fallback():
     
     st.error(f"Sample CSV file not found at `{csv_path}`.")
     return pd.DataFrame()
-    
+ 
     
 #def load_data():
 #    @st.cache_data
