@@ -24,6 +24,34 @@ def load_model():
 
 
 @st.cache_data
+def load_scored_listings():
+    # Attempt to load from Database if credentials exist and are not localhost
+    db_host = st.secrets.get("DB_HOST", os.getenv("DB_HOST", "localhost"))
+    
+    if db_host != "localhost":
+        try:
+            user = st.secrets.get("DB_USER")
+            password = st.secrets.get("DB_PASSWORD")
+            port = st.secrets.get("DB_PORT", "5432")
+            database = st.secrets.get("DB_NAME")
+            
+            engine = create_engine(
+                f"postgresql+psycopg2://{user}:{password}@{db_host}:{port}/{database}",
+                connect_args={'connect_timeout': 5}
+            )
+            query = "SELECT * FROM scored_listings LIMIT 100;"
+            return pd.read_sql(query, engine)
+        except Exception as e:
+            st.warning("Could not connect to live database. Falling back to static data.")
+
+# Fallback to local sample CSV file
+    csv_path = "data/processed/sample_scored_listings.csv"
+    if os.path.exists(csv_path):
+        return pd.read_csv(csv_path)
+    
+    st.error("No database connection or local CSV data available.")
+    return pd.DataFrame()            
+            
 #def load_data():
 #    @st.cache_data
 def load_data():
