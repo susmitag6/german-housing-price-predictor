@@ -24,48 +24,39 @@ def load_model():
 
 
 @st.cache_data
-def load_scored_listings():
-    # 1. Fetch values safely from secrets or env
-    user = st.secrets.get("DB_USER", os.getenv("DB_USER"))
-    password = st.secrets.get("DB_PASSWORD", os.getenv("DB_PASSWORD"))
-    host = st.secrets.get("DB_HOST", os.getenv("DB_HOST"))
-    database = st.secrets.get("DB_NAME", os.getenv("DB_NAME"))
-    raw_port = st.secrets.get("DB_PORT", os.getenv("DB_PORT"))
+def get_database_url():
 
-    # 2. Convert port safely — NEVER allow the string 'None'
-    if raw_port is not None and str(raw_port).strip().isdigit():
-        port = int(str(raw_port).strip())
-    else:
-        port = 5432
+    # Streamlit Cloud
+    if "DATABASE_URL" in st.secrets:
+        return st.secrets["DATABASE_URL"]
 
-    # 3. Check for missing host or localhost on Streamlit Cloud
-    if not host or host in ["localhost", "127.0.0.1", "None"] or not all([user, password, database]):
-        st.info("Database not configured or running on localhost. Loading CSV fallback...")
-        return _load_csv_fallback()
+    # Local development
+    database_url = os.getenv("DATABASE_URL")
 
-    # 4. Build connection safely using URL.create (avoids string parsing bugs)
-    try:
-        connection_url = URL.create(
-            drivername="postgresql+psycopg2",
-            username=user,
-            password=password,
-            host=host,
-            port=port,
-            database=database
+    if database_url:
+        return database_url
+
+    user = os.getenv("DB_USER")
+    password = os.getenv("DB_PASSWORD")
+    host = os.getenv("DB_HOST")
+    port = os.getenv("DB_PORT")
+    database = os.getenv("DB_NAME")
+
+    if not all([
+        user,
+        password,
+        host,
+        port,
+        database
+    ]):
+        raise ValueError(
+            "Database configuration is missing."
         )
-        engine = create_engine(connection_url, connect_args={"connect_timeout": 5})
-        return pd.read_sql("SELECT * FROM scored_listings LIMIT 100;", engine)
-    except Exception as e:
-        st.warning("Database connection failed. Loading CSV fallback...")
-        return _load_csv_fallback()
 
-def _load_csv_fallback():
-    csv_path = "data/processed/sample_scored_listings.csv"
-    if os.path.exists(csv_path):
-        return pd.read_csv(csv_path)
-    
-    st.error("No database connection or local CSV data available.")
-    return pd.DataFrame()
+    return (
+        f"postgresql+psycopg2://"
+        f"{user}:{password}@{host}:{port}/{database}"
+    )
     
     
 #def load_data():
@@ -298,15 +289,11 @@ st.dataframe(
 @st.cache_data(ttl=60)
 def load_scored_listings():
 
-    user = os.getenv("DB_USER")
-    password = os.getenv("DB_PASSWORD")
-    host = os.getenv("DB_HOST")
-    port = os.getenv("DB_PORT")
-    database = os.getenv("DB_NAME")
+    database_url = get_database_url()
 
     engine = create_engine(
-        f"postgresql+psycopg2://"
-        f"{user}:{password}@{host}:{port}/{database}"
+        database_url,
+        pool_pre_ping=True
     )
 
     query = """
@@ -327,8 +314,10 @@ def load_scored_listings():
         ORDER BY last_seen_at DESC;
     """
 
-    return pd.read_sql(query, engine)
-    
+    return pd.read_sql(
+        query,
+        engine
+    )
 # -----------------------------------------
 # Latest scored listings
 # -----------------------------------------
